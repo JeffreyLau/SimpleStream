@@ -28,6 +28,7 @@ import android.view.Surface;
 import android.view.SurfaceView;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -82,12 +83,14 @@ public class CameraTools {
             @Override
             public void onInputBufferAvailable(MediaCodec codec, int index) {
                 Log.i(LOG_TAG, "in onInputBufferAvailable");
-                //codec.queueInputBuffer(index);
+                ByteBuffer iBuffer = codec.getInputBuffer(index);
+                codec.queueInputBuffer(index, 0, iBuffer.capacity(), 60, 0);
             }
 
             @Override
             public void onOutputBufferAvailable(MediaCodec codec, int index, MediaCodec.BufferInfo info) {
                 Log.i(LOG_TAG, "in onOutputBufferAvailable");
+                codec.releaseOutputBuffer(index, false);
             }
 
             @Override
@@ -145,10 +148,11 @@ public class CameraTools {
         mCurrSurface = mSurfaceView.getHolder().getSurface();
         mVideoParams.getVideoFormat().setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         mMediaCodec.configure(mVideoParams.getVideoFormat(), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-        Surface surface = mMediaCodec.createInputSurface();
-
+        mCurrSurface = mMediaCodec.createInputSurface();
+        assert mCurrSurface == null;
         surfaces.add(mCurrSurface);
-        surfaces.add(surface);
+        //surfaces.add(blabla);
+
         for(String s : mMediaCodec.getCodecInfo().getSupportedTypes()){
             System.out.println("SUPPORTED TYPE: " + s);
             MediaCodecInfo.CodecCapabilities capabilities = mMediaCodec.getCodecInfo().getCapabilitiesForType(s);
@@ -162,9 +166,6 @@ public class CameraTools {
             }
         }
 
-        if(surface != null){
-            Log.i(LOG_TAG, "SURFACE NOT NULL FOR MEDIA CODEC");
-        }
         try {
             mCamera.createCaptureSession(surfaces, mCaptureCallback, new Handler());
         } catch (CameraAccessException e) {
@@ -193,6 +194,7 @@ public class CameraTools {
         try {
             CaptureRequest.Builder requestBuilder = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
             requestBuilder.addTarget(mCurrSurface);
+
             mMediaCodec.start();
 
             captureSession.setRepeatingRequest(requestBuilder.build(), new CameraCaptureSession.CaptureCallback() {
@@ -214,8 +216,8 @@ public class CameraTools {
                 public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request, TotalCaptureResult result) {
                     super.onCaptureCompleted(session, request, result);
                     Log.i(LOG_TAG, "CAPTURE: COMPLETE");
-                    mMediaCodec.stop();
-                    mMediaCodec.release();
+                    //mMediaCodec.stop();
+                    //mMediaCodec.release();
                 }
 
                 @Override
